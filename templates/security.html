@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block subheading %}A transparent look at CipherChat's zero-knowledge design{% endblock %}
+{% block head %}<style>
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:stretch}
+.flow .stp{padding:18px;border-radius:18px;background:var(--card-solid);border:1px solid var(--border);text-align:center;position:relative}
+.flow .stp i{font-size:30px;display:block;margin-bottom:8px}.flow .stp b{display:block;margin-bottom:4px}
+.flow .stp:not(:last-child)::after{content:"→";position:absolute;right:-12px;top:42%;color:var(--a1);font-weight:700}
+#demoOut{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all;padding:14px;border-radius:12px;background:var(--input);min-height:80px}
+@media(max-width:900px){.flow{grid-template-columns:1fr}.flow .stp::after{display:none}}
+</style>{% endblock %}
+{% block content %}
+<div class="card glow fade-up"><h3><i class="bi bi-diagram-3"></i> What happens when you press Send</h3>
+  <div class="flow">
+    {% for ic, t, d in [('bi-key','Passphrase','Typed once, stays in your browser'),('bi-cpu','PBKDF2','150,000 SHA-256 rounds + random salt → 256-bit key'),('bi-lock','AES-GCM','Random 96-bit IV, authenticated encryption'),('bi-cloud-arrow-up','Server','Stores only IV + ciphertext'),('bi-unlock','Members','Same passphrase → same key → decrypt locally')] %}
+    <div class="stp fade-up"><i class="bi {{ ic }} gradient-text"></i><b>{{ t }}</b><span class="muted small">{{ d }}</span></div>{% endfor %}
+  </div></div>
+<div class="grid g2 mt">
+  <div class="card fade-up"><h3><i class="bi bi-terminal"></i> Try it — live in your browser</h3>
+    <div class="grid g2"><div class="field"><label>Passphrase</label><input class="input" id="dp" value="demo-secret"></div><div class="field"><label>Message</label><input class="input" id="dm" value="Meet at 6 PM 🔐"></div></div>
+    <button class="btn btn-primary" id="enc"><i class="bi bi-lock"></i> Encrypt</button>
+    <div class="mt" id="demoOut">Ciphertext appears here…</div></div>
+  <div class="card fade-up"><h3><i class="bi bi-patch-check"></i> Guarantees & limits</h3>
+    {% for ok, t in [(1,'Server breach reveals no message content'),(1,'Tampered ciphertext fails GCM authentication'),(1,'Each message uses a fresh random IV'),(1,'Self-destructing messages are purged from the database'),(0,'Metadata (who/when) is visible to the server'),(0,'Lost passphrase = unrecoverable messages')] %}
+    <div class="list-item" style="padding:7px"><i class="bi {{ 'bi-check-circle-fill' if ok else 'bi-info-circle-fill' }}" style="color:var(--{{ 'success' if ok else 'warning' }})"></i><span class="small">{{ t }}</span></div>{% endfor %}</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='crypto.js') }}"></script>
+<script>enc.onclick = async () => { const s = E2E.newSalt(), k = await E2E.deriveKey(dp.value, s), r = await E2E.encrypt(k, dm.value);
+  demoOut.innerHTML = `<b>salt</b> ${s}<br><b>iv</b> ${r.iv}<br><b>ciphertext</b> ${r.ct}<br><span style="color:var(--success)">✓ decrypts back to: ${esc(await E2E.decrypt(k, r.iv, r.ct))}</span>`; };</script>
+{% endblock %}

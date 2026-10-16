@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block subheading %}Every room has its own passphrase — share it with members out-of-band{% endblock %}
+{% block topbar_extra %}<button class="btn btn-primary btn-sm" data-modal="newRoom"><i class="bi bi-plus-lg"></i> New room</button>{% endblock %}
+{% block head %}<style>.room .lock{width:56px;height:56px;border-radius:18px;background:var(--grad);display:grid;place-items:center;font-size:24px;color:#fff;box-shadow:0 10px 26px color-mix(in srgb,var(--a1) 40%,transparent)}</style>{% endblock %}
+{% block content %}
+<form class="card glow fade-up mb row" method="post" action="{{ url_for('join') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><i class="bi bi-door-open" style="font-size:24px;color:var(--a1)"></i><b>Join a room</b>
+  <input class="input" name="code" maxlength="6" placeholder="ROOM CODE" style="max-width:200px;text-transform:uppercase;letter-spacing:4px;font-weight:700">
+  <button class="btn btn-primary"><i class="bi bi-box-arrow-in-right"></i> Join</button>
+  <span class="muted small" style="margin-left:auto"><i class="bi bi-info-circle"></i> Demo room code <b>DEMO42</b> · passphrase <b>demo-secret</b></span>
+</form>
+<div class="grid g3">
+  {% for r in rows %}
+  <a class="card hover fade-up room" href="{{ url_for('room', code=r.code) }}" data-t="{{ r.name|lower }}">
+    <div class="row"><div class="lock"><i class="bi bi-shield-lock"></i></div><div style="flex:1"><b style="font-size:16px">{{ r.name }}</b><div class="muted small">Code <b>{{ r.code }}</b></div></div>
+      {% if r.online %}<span class="live">{{ r.online }} online</span>{% endif %}</div>
+    <div class="row small muted mt"><span><i class="bi bi-people"></i> {{ r.n_members }} members</span><span><i class="bi bi-chat"></i> {{ r.n_msgs }} messages</span>
+      {% if r.default_ttl %}<span class="badge warning"><i class="bi bi-hourglass-split"></i> self-destruct</span>{% endif %}</div>
+    <div class="small muted mt"><i class="bi bi-clock"></i> {{ ('Last message ' ~ r.last_msg[:16]) if r.last_msg else 'No messages yet' }}</div>
+  </a>
+  {% else %}<div class="card empty"><i class="bi bi-chat-square-dots"></i>No rooms yet — create one or join DEMO42</div>{% endfor %}
+</div>
+<div class="modal" id="newRoom"><div class="box">
+  <h3>Create encrypted room <button class="icon-btn" data-close><i class="bi bi-x-lg"></i></button></h3>
+  <form id="nf">
+    <div class="field"><label>Room name</label><input class="input" id="rn" required placeholder="e.g. Final year project"></div>
+    <div class="field"><label>Room passphrase (never sent to the server)</label>
+      <div class="input-icon"><i class="bi bi-key"></i><input class="input" id="rp" type="password" required minlength="6" data-strength="#rs" placeholder="Share this with members privately"><button type="button" class="toggle-pw"><i class="bi bi-eye"></i></button></div>
+      <div class="strength" id="rs"><span></span><span></span><span></span><span></span></div><div class="strength-text" id="rs-text"></div></div>
+    <div class="field"><label>Default self-destruct</label><select id="ttl"><option value="0">Off</option><option value="60">1 minute</option><option value="3600">1 hour</option><option value="86400">1 day</option></select></div>
+    <button class="btn btn-primary btn-block" id="createBtn"><i class="bi bi-shield-plus"></i> Create room</button>
+  </form>
+</div></div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='crypto.js') }}"></script>
+<script>
+nf.onsubmit = async e => { e.preventDefault(); createBtn.disabled = true; createBtn.innerHTML = '<i class="bi bi-gear spin"></i> Deriving key…';
+  try { const salt = E2E.newSalt(), key = await E2E.deriveKey(rp.value, salt), v = await E2E.encrypt(key, 'cipherchat-ok');
+    const r = await api('/api/rooms', {body: {name: rn.value, salt, verifier_iv: v.iv, verifier_ct: v.ct, ttl: +ttl.value}});
+    try { sessionStorage.setItem('pp_' + r.code, rp.value); } catch (x) {} location.href = r.url; }
+  catch (x) { createBtn.disabled = false; createBtn.innerHTML = '<i class="bi bi-shield-plus"></i> Create room'; } };
+globalSearch.oninput = e => document.querySelectorAll('.room').forEach(c => c.style.display = c.dataset.t.includes(e.target.value.toLowerCase()) ? '' : 'none');
+</script>
+{% endblock %}
