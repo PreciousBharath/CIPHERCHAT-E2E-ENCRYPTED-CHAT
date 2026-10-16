@@ -1,0 +1,2 @@
+Flask>=3.0
+cryptography  # optional: only used to seed the encrypted demo room
